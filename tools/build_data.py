@@ -39,7 +39,13 @@ def kind_of(title, all_day, start):
     return "e"
 
 def build():
-    raw = urllib.request.urlopen(ICS, timeout=30).read()
+    import time
+    for attempt in range(5):
+        try:
+            raw = urllib.request.urlopen(ICS, timeout=30).read(); break
+        except Exception as e:
+            if attempt == 4: raise
+            print(f"Calendar fetch failed ({e}); retrying."); time.sleep(10 * (attempt + 1))
     cal = Calendar.from_ical(raw)
     out = []
     for ev in cal.walk("VEVENT"):
@@ -81,12 +87,13 @@ def encrypt(obj, code):
 if __name__ == "__main__":
     events = build()
     digest = hashlib.sha256(json.dumps(events, sort_keys=True).encode()).hexdigest()[:16]
-    try: old = json.load(open(OUT)).get("v")
-    except Exception: old = None
-    if old == digest:
+    code = os.environ.get("CLASS_CODE", "")
+    try:
+        prev = json.load(open(OUT)); old, old_locked = prev.get("v"), "enc" in prev
+    except Exception: old, old_locked = None, None
+    if old == digest and old_locked == bool(code):
         print("No schedule change."); raise SystemExit(0)
     payload = {"events": events, "updated": datetime.datetime.now(TZ).strftime("%b %-d, %Y %-I:%M %p")}
-    code = os.environ.get("CLASS_CODE", "")
     doc = {"v": digest, "enc": encrypt(payload, code)} if code else {"v": digest, **payload}
     json.dump(doc, open(OUT, "w"))
     print(f"Wrote {len(events)} entries ({'encrypted' if code else 'plain'}), version {digest}.")
