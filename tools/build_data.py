@@ -53,6 +53,7 @@ def build():
         if re.search(r"grade check", title, re.I): flag = "gc"
         elif re.search(r"cheer showcase$|stunting clinic|picture day|pep assembly", title, re.I): flag = "big"
         loc = str(ev.get("LOCATION", "")).strip()
+        game = bool(re.search(r"\bgames?\b|\bvs\.?\s|\btournament", title, re.I)) and "unconfirmed" not in title.lower() and not all_day
         days = 1
         if all_day and en: days = max(1, (en - st).days)
         for i in range(days):
@@ -62,7 +63,7 @@ def build():
                 "s": "" if all_day else st.strftime("%H:%M"),
                 "e": "" if all_day or not en else en.strftime("%H:%M"),
                 "t": clean_title(title), "k": k, "n": clean_note(str(ev.get("DESCRIPTION", "")), k),
-                "flag": flag, "where": "" if k in "xdg" else loc,
+                "flag": flag, "where": "" if k in "xdg" else loc, "game": game,
             })
     out.sort(key=lambda e: (e["d"], e["s"] or "00:00", e["t"]))
     return out
