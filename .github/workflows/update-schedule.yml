@@ -1,0 +1,31 @@
+name: Update schedule from the team calendar
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: update-schedule
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install icalendar==6.1.0 cryptography==43.0.3
+      - name: Build data.json from the public calendar
+        env:
+          CLASS_CODE: ${{ secrets.CLASS_CODE }}
+        run: python tools/build_data.py
+      - name: Commit if the schedule changed
+        run: |
+          if git diff --quiet -- data.json; then echo "No change"; exit 0; fi
+          git config user.name "aki-cheer-bot"
+          git config user.email "aki-cheer-bot@users.noreply.github.com"
+          git add data.json
+          git commit -m "Schedule update from the team calendar"
+          git push
